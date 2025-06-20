@@ -63,11 +63,13 @@ def predict(
     model = model.to(device)
     image = image.to(device)
 
-    with torch.no_grad():
-        outputs = model(image[None], captions=[caption])
+    # with torch.no_grad():
+    #     outputs = model(image[None], captions=[caption])
 
-    prediction_logits = outputs["pred_logits"].cpu().sigmoid()[0]  # prediction_logits.shape = (nq, 256)
-    prediction_boxes = outputs["pred_boxes"].cpu()[0]  # prediction_boxes.shape = (nq, 4)
+    outputs = model(image[None], captions=[caption])
+
+    prediction_logits = outputs["pred_logits"].sigmoid()[0] #.cpu()[0]  # prediction_logits.shape = (nq, 256)
+    prediction_boxes = outputs["pred_boxes"][0] #.cpu()[0]  # prediction_boxes.shape = (nq, 4)
 
     mask = prediction_logits.max(dim=1)[0] > box_threshold
     logits = prediction_logits[mask]  # logits.shape = (n, 256)

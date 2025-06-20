@@ -348,7 +348,7 @@ def crop_image(annotations, image_path):
     return cropped_boxes, cropped_images, not_crop, filter_id, annotations
 
 
-def box_prompt(masks, bbox, target_height, target_width):
+def box_prompt(masks, bbox, target_height, target_width, to_numpy=True):
     h = masks.shape[1]
     w = masks.shape[2]
     if h != target_height or w != target_width:
@@ -363,17 +363,29 @@ def box_prompt(masks, bbox, target_height, target_width):
     bbox[2] = round(bbox[2]) if round(bbox[2]) < w else w
     bbox[3] = round(bbox[3]) if round(bbox[3]) < h else h
 
-    # IoUs = torch.zeros(len(masks), dtype=torch.float32)
     bbox_area = (bbox[3] - bbox[1]) * (bbox[2] - bbox[0])
-
-    masks_area = torch.sum(masks[:, bbox[1] : bbox[3], bbox[0] : bbox[2]], dim=(1, 2))
+    
+    # Remove masks that segment "too much pixels" only if we have enough masks
+    _, sorted_indices = torch.sort(torch.sum(masks, dim=(1, 2)))
+    if len(sorted_indices) > 2:
+        masks = masks[sorted_indices[:-2]] #usually background and whole body
+    
+    # Return early if no masks left
+    if masks.numel() == 0:
+        if to_numpy:
+            return np.zeros((h, w)), -1
+        return torch.zeros((h, w), device=masks.device), -1
+    
     orig_masks_area = torch.sum(masks, dim=(1, 2))
-
+    masks_area = torch.sum(masks[:, bbox[1] : bbox[3], bbox[0] : bbox[2]], dim=(1, 2))
+    
     union = bbox_area + orig_masks_area - masks_area
     IoUs = masks_area / union
     max_iou_index = torch.argmax(IoUs)
-
-    return masks[max_iou_index].cpu().numpy(), max_iou_index
+    if to_numpy: 
+        return masks[max_iou_index].numpy(), max_iou_index
+    else:
+        return masks[max_iou_index], max_iou_index
 
 
 def point_prompt(masks, points, pointlabel, target_height, target_width):  # numpy 处理

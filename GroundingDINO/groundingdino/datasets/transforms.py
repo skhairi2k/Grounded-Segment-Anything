@@ -112,8 +112,11 @@ def resize(image, target, size, max_size=None):
             return size[::-1]
         else:
             return get_size_with_aspect_ratio(image_size, size, max_size)
-
-    size = get_size(image.size, size, max_size)
+    if torch.is_tensor(image):
+        image_size = image.shape[-2:]
+    else: #numpy
+        image_size = image.size
+    size = get_size(image_size, size, max_size)
     rescaled_image = F.resize(image, size)
 
     if target is None:
